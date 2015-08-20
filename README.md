@@ -46,7 +46,7 @@ application's directory tree, a sleazy symlink trick is used.
              /usr/local/arduino/hardware/arduino/uno \
 
    Thus, when told to build `cores/arduino/*.cpp` (core library) or
-   `libraries/SPI/*.cpp (SPI library)`, scons will find them under
+   `libraries/SPI/*.cpp` (SPI library), scons will find them under
    `build/uno/cores/arduino` and `build/uno/libraries/SPI`.
 
    This tool uses this latter sym linking approach.  It's admittedly
@@ -97,7 +97,8 @@ the above three settings.
 When creating the scons environment, declare usage of the tool `arduino`
 and the location of the directory containing `arduino.py`.  For example,
 
-    env = Environment(tools = ['default', 'arduino'],                      toolpath = ['scons_tools'] )
+    env = Environment(tools = ['default', 'arduino'],
+                      toolpath = ['scons_tools'] )
 
 To then load information about the target Arduino board, issue the
 command
@@ -136,14 +137,14 @@ where
 
        [ ('-w', '-Wall'), ('-Os', '-O2') ] 
     
-    Note that depending upon a replace list may cause problems when
-    upgrading the Arduino application: a new version may no longer
-    specify a given switch.  For example, if you need `-O2` specified
-    but `-Os` is no longer used in the new Arduino `platform.txt`,
-    then the replacement will not occur and `-O2` will not be specified.
-    It is safer to strip unwanted flags/switches with a drop list
-    and later use `env.Append()` to add the necessary flags or
-    switches to `CCFLAGS` or `CXXFLAGS`.
+    Note that depending upon a replace list may cause problems after
+    upgrading the Arduino application: a new Arduino `platform.txt` file
+    may no longer specify a given switch.  With the above example, if
+    you need `-O2` specified but `-Os` is no longer used in the new
+    `platform.txt`, then the replacement will not occur and thus `-O2`
+    will not be asserted.  It is safer to strip unwanted flags/switches
+    with a drop list and use `env.Append()` to add assert necessary 
+    flags or switches for `CCFLAGS` or `CXXFLAGS`.
     
     A drop list is a list of 2-tuples, each 2-tuple containing a string
     to drop and a count of the subsequent number of tokens following the
@@ -156,3 +157,20 @@ where
     
        [ ('-o', 1), ('-w', 0) ]
        
+
+## Examples
+
+Two complete examples are provided.  After editing their `SConstruct`
+files to have Arduino version and path information specific to your
+computer, they should build with a simple scons command.
+
+* `example_simple/` is a simple Arduino program which requires the
+  Arduino core and SoftwareSerial libraries.  It builds _in situ_
+  rather than to a variant directory.
+
+* `example_variant/` builds to a variant directory, `build/<board-name>/`.
+  In addition to using Arduino libraries, it also provides a library
+  of its own in `src/libraries/`.  Note that library sources do not
+  need to be in a subdirectory.  And if placed in a subdirectory, then
+  the name is arbitrary.  Libraries do not need to be in a
+  subdirectory named `libraries`.
