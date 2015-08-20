@@ -1,0 +1,69 @@
+import os
+from os.path import join
+
+# Arduino paths of interest
+#
+# For 1.5.x, we only need to know the path to the top-level Arduino
+# directory, arduino_home, and the Arduino architecture of avr or sam,
+# arduino_arch.  For 1.5.x,  we can determine the Arduino version as
+# well with just the top-level Arduino directory, but for 1.6.x it's
+# better to be told it upfront to reduce trial-and-error guessing.
+#
+# For 1.6.x, arduino_home depends upon whether the target Architecture
+# installed with Arduino 1.6.x or if it was downloaded separately via
+# Tools > Board > Boards Manager....  Also the location of the gcc
+# tool chain must be specified for 1.6.x.  While it is possible to
+# determine that path, for separately downloaded boards 1.6.x requires
+# parsing of JSON files as well as .txt files.  To avoid that complexity
+# a human assistant must provide that information.
+
+# 1.5.8 SAM | AVR
+#arduino_version = 158
+#arduino_arch  = 'sam' # 'avr'
+#arduino_home  = '/Applications/Arduino-1.5.8.app/Contents/Resources/Java'
+
+# 1.6.4 AVR
+arduino_version = 164
+arduino_arch  = 'avr'
+arduino_home  = '/Applications/Arduino.app/Contents/Java'
+
+# 1.6.4 SAM
+#arduino_version = 164
+#arduino_arch  = 'sam'
+#arduino_home  = '/Users/dnewman/Library/Arduino15/packages/arduino'
+#arduino_tools = '/Users/dnewman/Library/Arduino15/packages/arduino/tools/arm-none-eabi-gcc/4.8.3-2014q1'
+
+if 'ARDUINO_VERSION' in os.environ:
+   arduino_version = int(os.environ['ARDUINO_VERSION'])
+else:
+   os.environ['ARDUINO_VERSION'] = str(arduino_version)
+
+if not ('ARDUINO_ARCH' in os.environ):
+   os.environ['ARDUINO_ARCH'] = arduino_arch.lower()
+
+if not ('ARDUINO_HOME' in os.environ):
+   os.environ['ARDUINO_HOME'] = arduino_home
+
+if arduino_version >= 160:
+   if not ('ARDUINO_TOOLS' in os.environ):
+
+      # For AVRs, we can infer arduino_tools from arduino_home
+      # However, for other architectures installed separately from
+      # the Arduino distribution, we cannot do so without parsing
+      # some JSON and other files.  In that case, we require arduino_tools
+      # to be explicitly set
+
+      if not ('arduino_tools' in globals()):
+         if arduino_arch != 'avr':
+            raise Exception('ARDUINO_TOOLS is not in the environment nor is arduino_tools declared')
+         if 'ARDUINO_HOME' in os.environ:
+            arduino_tools = os.environ['ARDUINO_HOME']
+         else:
+            arduino_tools = join(arduino_home, 'hardware', 'tools', 'avr')
+      os.environ['ARDUINO_TOOLS'] = arduino_tools
+
+platform = ARGUMENTS.get('platform', 'uno')
+
+os.environ['VARIANT_DIR'] = join('build', platform)
+
+SConscript(['src/SConscript'], variant_dir=os.environ['VARIANT_DIR'])

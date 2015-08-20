@@ -1,0 +1,43 @@
+import os
+from os.path import join
+
+platform = ARGUMENTS.get('platform', 'uno')
+
+arduino_version_str = os.environ['ARDUINO_VERSION']
+arduino_version = int(arduino_version_str)
+arduino_home    = os.environ['ARDUINO_HOME']
+arduino_arch    = os.environ['ARDUINO_ARCH']
+
+drop_list = [
+   ('-o', 1),    # Remove -o and argument following it (move to arduino.py?)
+   ('-w', 0),    # Yeah, Arduino suppresses all warnings!
+   ('-MMD', 0) ] # We don't need .d turds
+
+options = {
+  'cc_flags_drop_list'  : drop_list,
+  'cxx_flags_drop_list' : drop_list }
+
+# Arduino subroutines will punch in CCFLAGS, CXXFLAGS, CPPPATH, etc.
+
+env = Environment(
+    tools = ['default', 'arduino'],
+    toolpath = ['../../scons_tools'],
+	VARIANT_DIR = os.environ['VARIANT_DIR'] )
+
+# Next call allows us to build sources from the Arduino install tree
+# without leaving .o and .a files in that tree.
+
+Repository(join(arduino_home, 'hardware/arduino/avr'))
+
+# Arduino setup, core library, and SoftwareSerial
+env.ConfigureBoard(arduino_version, arduino_arch, 'uno', options)
+core_lib = env.ArduinoCore()
+serial_lib = env.ArduinoLibrary('SoftwareSerial')
+
+# Our own code and a library of our own
+objs = env.Object(Glob('*.cpp'))
+another_lib = env.Library('max31855', Glob('libraries/MAX31855/*.cpp'))
+
+# *** NOTE: core_lib last!
+env.Elf('blah.elf', [ objs, another_lib, serial_lib, core_lib])
+env.Hex('blah.hex', 'blah.elf')
