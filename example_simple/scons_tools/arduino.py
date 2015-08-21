@@ -271,6 +271,9 @@ def generate(env):
         if platform_dir == '':
             return
 
+        if type(version) is str:
+            version = int(version)
+
         if (arch != 'avr') and (version >= 160):
             hardware_path = join(env.subst('$ARDUINO_HOME'), 'hardware')
             arduino_path  = join(hardware_path, arch.lower())
@@ -302,6 +305,10 @@ def generate(env):
             ARDUINO_ARCH = os.environ.get("ARDUINO_ARCH", "sam"))
 
         arch = arch.lower()
+
+        if type(version) is str:
+            version = int(version)
+
         version_path = '%d.%d.%d' % (version / 100, (version % 100) / 10, version % 10)
         if (arch != 'avr') and (version >= 160):
             hardware_path = join(env.subst('$ARDUINO_HOME'), 'hardware')
@@ -557,19 +564,19 @@ def generate(env):
             if 'VARIANT_DIR' in os.environ:
                 map_name = join(os.environ['VARIANT_DIR'], map_name)
 
-            str = info['recipe.c.combine.pattern']
-            str = str.replace('{build.path}/{build.project_name}.map', map_name)
-            str = str.replace('"{build.path}/{build.project_name}.elf"', '$TARGET')
-            str = str.replace('{build.path}/{build.project_name}.elf',   '$TARGET')
-            str = str.replace('"-L{build.path}"', '$_LIBDIRFLAGS')
-            str = str.replace('-L{build.path}',   '$_LIBDIRFLAGS')
-            str = str.replace('"{build.path}/syscalls_sam3.c.o"', '$_LIBFLAGS')
-            str = str.replace('{build.path}/syscalls_sam3.c.o',   '$_LIBFLAGS')
-            str = str.replace('"{object_files}"', '$SOURCES')
-            str = str.replace('{object_files}', '$SOURCES')
-            str = str.replace('"{build.path}/{archive_file}"', '')
-            str = str.replace('{build.path}/{archive_file}', '')
-            env.Append( BUILDERS = { 'Elf' : Builder(action=str) } )
+            s = info['recipe.c.combine.pattern']
+            s = s.replace('{build.path}/{build.project_name}.map', map_name)
+            s = s.replace('"{build.path}/{build.project_name}.elf"', '$TARGET')
+            s = s.replace('{build.path}/{build.project_name}.elf',   '$TARGET')
+            s = s.replace('"-L{build.path}"', '$_LIBDIRFLAGS')
+            s = s.replace('-L{build.path}',   '$_LIBDIRFLAGS')
+            s = s.replace('"{build.path}/syscalls_sam3.c.o"', '$_LIBFLAGS')
+            s = s.replace('{build.path}/syscalls_sam3.c.o',   '$_LIBFLAGS')
+            s = s.replace('"{object_files}"', '$SOURCES')
+            s = s.replace('{object_files}', '$SOURCES')
+            s = s.replace('"{build.path}/{archive_file}"', '')
+            s = s.replace('{build.path}/{archive_file}', '')
+            env.Append( BUILDERS = { 'Elf' : Builder(action=s) } )
 
         if (arch != 'avr') and (version >= 160):
             pattern = 'recipe.objcopy.bin.pattern'
@@ -578,26 +585,26 @@ def generate(env):
 
         if pattern in info:
 
-            str = info[pattern]
-            str = str.replace('"{build.path}/{build.project_name}.elf"', '$SOURCES')
-            str = str.replace('{build.path}/{build.project_name}.elf',   '$SOURCES')
-            str = str.replace('"{build.path}/{build.project_name}.bin"', '$TARGET')
-            str = str.replace('{build.path}/{build.project_name}.bin',   '$TARGET')
-            str = str.replace('"{build.path}/{build.project_name}.hex"', '$TARGET')
-            str = str.replace('{build.path}/{build.project_name}.hex',   '$TARGET')
-            env.Append( BUILDERS = { 'Hex' : Builder(action=str, suffix='.hex', src_suffix='.elf') } )
+            s = info[pattern]
+            s = s.replace('"{build.path}/{build.project_name}.elf"', '$SOURCES')
+            s = s.replace('{build.path}/{build.project_name}.elf',   '$SOURCES')
+            s = s.replace('"{build.path}/{build.project_name}.bin"', '$TARGET')
+            s = s.replace('{build.path}/{build.project_name}.bin',   '$TARGET')
+            s = s.replace('"{build.path}/{build.project_name}.hex"', '$TARGET')
+            s = s.replace('{build.path}/{build.project_name}.hex',   '$TARGET')
+            env.Append( BUILDERS = { 'Hex' : Builder(action=s, suffix='.hex', src_suffix='.elf') } )
 
         if 'recipe.S.o.pattern' in info:
-            str = info['recipe.S.o.pattern']
-            str = str.replace('"{includes}"',    '$_CPPINCFLAGS')
-            str = str.replace('{includes}',      '$_CPPINCFLAGS')
-            str = str.replace('"{source_file}"', '$SOURCES')
-            str = str.replace('{source_file}',   '$SOURCES')
-            str = str.replace('"{object_file}"', '$TARGET')
-            str = str.replace('{object_file}',   '$TARGET')
-            str = str.replace('"{build.path}/{archive_file}"', '')
-            str = str.replace('{build.path}/{archive_file}', '')
-            env.Replace( ASCOM = str, ASPPCOM = str )
+            s = info['recipe.S.o.pattern']
+            s = s.replace('"{includes}"',    '$_CPPINCFLAGS')
+            s = s.replace('{includes}',      '$_CPPINCFLAGS')
+            s = s.replace('"{source_file}"', '$SOURCES')
+            s = s.replace('{source_file}',   '$SOURCES')
+            s = s.replace('"{object_file}"', '$TARGET')
+            s = s.replace('{object_file}',   '$TARGET')
+            s = s.replace('"{build.path}/{archive_file}"', '')
+            s = s.replace('{build.path}/{archive_file}', '')
+            env.Replace( ASCOM = s, ASPPCOM = s )
 
         return env
 
