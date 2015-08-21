@@ -2,7 +2,7 @@
 
 ## Introduction
 
-The Scons arduino tool here, `arduino.py`, is loosely based upon the earlier
+The Scons arduino tool `arduino.py` is loosely based upon the earlier
 work of github user tomjnixon and his arduino-scons-alt repository.   In
 August 2015, I found his work which hadn't been updated since 2013 and which
 (1) only ever worked for AVRs, (2) had never been updated to Arduino app
@@ -11,64 +11,68 @@ files in the Arduino application directory tree.
 
 `arduino.py` has been tested with Arduino 1.5 and 1.6 for both AVR and SAM/ARM
 architectures.  To prevent object files from being left in the Arduino
-application's directory tree, a sleazy symlink trick is used.
+application's directory tree, a sleazy symlink trick is used owing to
+the restrictive behavior of scons' `Repository()` facility.
 
 1. `VariantDir()` requires that the source files live in or below the main
    source tree.  So, to use just `VariantDir()` the Arduino library sources
-   would need to be copied into the source tree.
+   need to be copied into the source tree so as to provide visibility to
+   a scons build.
 
-2. `Repository()` allows files outside the source tree to be referenced, but
-   when combined with `VariantDir()` requires identical directory naming
-   between the "mounted" repository and the `VariantDir()` directory.
-   Consider, for example,
+2. `Repository()` makes sources outside the source tree visible for
+   building without leaving object files in that outside source tree.
+   But, when combined with `VariantDir()` requires identical directory
+   naming between the "mounted" repository and the `VariantDir()`
+   directory.  Consider, for example,
 
        source directory = src/
-       build variant directory = build/uno/
-       arduino source = /usr/local/arduino/hardware/arduino/avr/
+       build variant directory = BUILD/UNO/
+       Arduino source directory = /usr/local/arduino/hardware/arduino/avr/
 
    With the commands
 
-       VariantDir('build/uno', 'src')
+       VariantDir('BUILD/UNO', 'src')
        Repository('/usr/local/arduino/hardware/arduino/avr')
 
    there is now a problem.  When scons looks for Arduino library
    sources to build, it will require them to be under
 
-       /usr/local/arduino/hardware/arduino/avr/build/uno
+       /usr/local/arduino/hardware/arduino/avr/BUILD/UNO/
 
-   This can be dealt with by making a sym link loop from `uno/` to `avr/`
-   but that may cause problems for unsuspecting programs.  Alternatively,
-   we can
+   This can be dealt with by making a symbolic link loop from `UNO/` to
+   `avr/` but that may cause problems with unsuspecting programs.
+   Alternatively, we can
 
        ln -s /usr/local/arduino/hardware/arduino \
-             /usr/local/arduino/hardware/build \
+             /usr/local/arduino/hardware/BUILD \
        ln -s /usr/local/arduino/hardware/arduino/avr \
-             /usr/local/arduino/hardware/arduino/uno \
+             /usr/local/arduino/hardware/arduino/UNO \
 
    Thus, when told to build `cores/arduino/*.cpp` (core library) or
    `libraries/SPI/*.cpp` (SPI library), scons will find them under
-   `build/uno/cores/arduino` and `build/uno/libraries/SPI`.
+   `BUILD/UNO/cores/arduino` and `BUILD/UNO/libraries/SPI`.
 
-   This tool uses this latter sym linking approach.  It's admittedly
+   This tool uses this latter symbolic link approach.  It's admittedly
    sleazy -- it puts sym links into the Arduino tree -- but there's
-   presently no better alternatives.  The symlinks are automatically
-   established; you do not need to manually create them.  Use with
+   presently no better alternatives.  The links are automatically
+   established; you do not need to manually create them.  This method
+   can be used with
    
    * No `VariantDir()`,
    * `VariantDir('a', )`, and
    * `VariantDir('a/b', )`
    
-   is supported.  That is, this code works with no variant dir, a
-   single-directory level variant dir, and a two-directory level variant dir.
+   That is, this code works with no variant directory, a single-directory
+   level variant directory, and a two-directory level variant directory.
 
    
 ## Usage
    
 Copy the `arduino.py` file to your project.  It can be kept tucked
-away in a subdirectory.  Scons also has various means of installing
-it in site-wide and per-user scons "tool" directories.  The examples
-provided here just keep it in a subdirectory named `scons_tools` and
-provide that directory's name and location to the `Environment()` call.
+away in a subdirectory.  Scons also has methods for installing it in
+site-wide or per-user scons "tool" directories.  The examples
+provided here keep it in a subdirectory named `scons_tools` and
+provide that directory's name and location with the `Environment()` call.
    
 In you SConstruct file, set into `os.environment()`
    
@@ -82,12 +86,12 @@ In you SConstruct file, set into `os.environment()`
 
         os.environ['ARDUINO_HOME'] = '/usr/local/arduino'
 
-   Note this is not the path for the `hardware` folder: it is the path
-   to the folder containing the `hardware` folder.
+   Note this is not the path for the `hardware` folder itself: it is
+   the path to the folder containing the `hardware` folder.
 
 3. For ARM/SAM architectures and Ardiuno 1.6 or later, the path
-   to the directory tree in which the separately installed gcc toolchain
-   is located.  E.g.,
+   to the directory tree in which the separately installed gcc
+   toolchain is located.  E.g.,
 
         os.environ['ARDUINO_TOOLS'] = '/Users/dnewman/Library/Arduino15/packages/arduino/tools/arm-none-eabi-gcc/4.8.3-2014q1'
 
@@ -113,16 +117,18 @@ where
 2. `arduino_arch` is the string `'avr'` or `'sam'` and represents
    the target architecture.  Yes, this could be derived from `board` but
    that would require either maintaining a table or making guesses in order
-   to find the correct `boards.txt` file.
+   to find the correct `boards.txt` file.  (The location of `boards.txt`
+   is dependent on both the target architecture and the version of the
+   Arduino application.)
 
 3. `board` is the Arduino board name as it appears in the architecture's
-   `boards.txt`.
+   `boards.txt` (e.g., "uno", "arduino_due_x").
 
 4. `options` is used to control how the Arduino `platform.txt` compile
-   recipes are transformed into CC and C++ compile commands for use by scons.
-   The Arduino recipes have undesirable (dubious) settings such as `-w` which
-   disables **all** compiler warnings.  These options may be used to drop
-   (strip) or replace portions of the recipes
+   recipes are transformed into CC and C++ commands for use with scons.
+   The Arduino recipes have undesirable (dubious) settings such as `-w`
+   which disables **all** compiler warnings.  These options may be used
+   to drop (strip) or replace portions of the recipes
 
    `options` is a dictionary containing any or all of the following keys
     
