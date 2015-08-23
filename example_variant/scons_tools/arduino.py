@@ -570,8 +570,10 @@ def generate(env):
             s = s.replace('{build.path}/{build.project_name}.elf',   '$TARGET')
             s = s.replace('"-L{build.path}"', '$_LIBDIRFLAGS')
             s = s.replace('-L{build.path}',   '$_LIBDIRFLAGS')
-            s = s.replace('"{build.path}/syscalls_sam3.c.o"', '$_LIBFLAGS')
-            s = s.replace('{build.path}/syscalls_sam3.c.o',   '$_LIBFLAGS')
+            s = s.replace('"{build.path}/syscalls_sam3.c.o"',
+                          join(variant_dir, 'cores', 'arduino', 'syscalls_sam3.o') + ' $_LIBFLAGS')
+            s = s.replace('{build.path}/syscalls_sam3.c.o',
+                          join(variant_dir, 'cores', 'arduino', 'syscalls_sam3.o') + ' $_LIBFLAGS')
             s = s.replace('"{object_files}"', '$SOURCES')
             s = s.replace('{object_files}', '$SOURCES')
             s = s.replace('"{build.path}/{archive_file}"', '')
@@ -648,8 +650,7 @@ def generate(env):
         '''
         Identify source files, .c, .cpp, and .S
         '''
-        return env.Glob(join(path, '*.c'), strings=True, exclude=['*syscalls_sam3*']) + \
-            env.Glob(join(path, '*.cpp'), strings=True)
+        return env.Glob(join(path, '*.c')) + env.Glob(join(path, '*.cpp'))
 
     @env.AddMethod
     def ArduinoLibrary(env, name, path=None):
