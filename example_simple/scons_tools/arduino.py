@@ -1,4 +1,5 @@
 from SCons.Script import *
+import sys
 import os
 from os.path import join
 import re
@@ -262,6 +263,12 @@ def generate(env):
 
         return new_flags
 
+    def setInfo(info, new, old):
+        if old in info:
+            info[new] = info[old]
+            return True
+        else:
+            return False
 
     @env.AddMethod
     def CleanupBoard(env, version, arch, board):
@@ -381,6 +388,34 @@ def generate(env):
             if 'version' in info:
                 info['runtime.ide.version'] = info['version'].replace('.','')
 
+        # Info for bosac/avrdude command
+        if arch == 'avr':
+            prog = 'avrdude'
+        else:
+            prog = 'bossac'
+
+        # Lovely thing is that the platform.txt entries for programming
+        # sam vs. avr are completely different...
+
+        ops = sys.platform.lower()
+
+        if (ops == 'win32'):
+            setInfo(info, 'cmd', 'tools.' + prog + '.cmd.windows')
+        if not ('cmd' in info):
+            setInfo(info, 'cmd', 'tools.' + prog + '.cmd')
+
+        setInfo(info, 'cmd.path', 'tools.' + prog + '.cmd.path')
+        setInfo(info, 'config.path', 'tools.' + prog + '.config.path')
+        if not setInfo(info, 'path', 'tools.' + prog + '.path'):
+            info['path'] = join(env.subst('$ARDUINO_HOME', 'hardware', 'tools'))
+
+        if not setInfo(info, 'upload.verbose', 
+                       'tools.' + prog + '.upload.params.quiet'):
+            info['upload.verbose'] = ''
+
+        info['upload.native_usb'] = 'false'
+        info['serial.port.file'] = '$PORT'
+
         # Now process all the substitution strings in the table
         mungTable(info)
 
@@ -484,9 +519,9 @@ def generate(env):
 
         if (arch != 'avr') and (version >= 160):
             env.SetDefault(
-                VARIANT_DIR = join('$ARDUINO_HOME', 'hardware',
-                                   '$ARDUINO_ARCH', version_path,
-                                   'variants', '$VARIANT'),
+                VARIANT_PATH = join('$ARDUINO_HOME', 'hardware',
+                                    '$ARDUINO_ARCH', version_path,
+                                    'variants', '$VARIANT'),
                 CORE_DIR    = join('$ARDUINO_HOME', 'hardware', '$ARDUINO_ARCH',
                                    version_path) )
             env.Append( CPPPATH = [
@@ -499,9 +534,9 @@ def generate(env):
                     info['build.variant.path'] ] )
         else:
             env.SetDefault(
-                VARIANT_DIR = join('$ARDUINO_HOME', 'hardware', 'arduino',
-                                   '$ARDUINO_ARCH', 'variants', '$VARIANT'),
-                CORE_DIR    = join('$ARDUINO_HOME', 'hardware', 'arduino',
+                VARIANT_PATH = join('$ARDUINO_HOME', 'hardware', 'arduino',
+                                    '$ARDUINO_ARCH', 'variants', '$VARIANT'),
+                CORE_DIR     = join('$ARDUINO_HOME', 'hardware', 'arduino',
                                    '$ARDUINO_ARCH') )
             if 'build.variant_system_lib' in info:
                 env.SetDefault(
@@ -561,6 +596,7 @@ def generate(env):
                 map_name = env['map_name']
             else:
                 map_name = 'RepRapFirmware.map'
+
             if 'VARIANT_DIR' in os.environ:
                 map_name = join(os.environ['VARIANT_DIR'], map_name)
 
@@ -571,9 +607,11 @@ def generate(env):
             s = s.replace('"-L{build.path}"', '$_LIBDIRFLAGS')
             s = s.replace('-L{build.path}',   '$_LIBDIRFLAGS')
             s = s.replace('"{build.path}/syscalls_sam3.c.o"',
-                          join(variant_dir, 'cores', 'arduino', 'syscalls_sam3.o') + ' $_LIBFLAGS')
+                          join(env.subst('$VARIANT_DIR'), 'cores',
+                               'arduino', 'syscalls_sam3.o') + ' $_LIBFLAGS')
             s = s.replace('{build.path}/syscalls_sam3.c.o',
-                          join(variant_dir, 'cores', 'arduino', 'syscalls_sam3.o') + ' $_LIBFLAGS')
+                          join(env.subst('$VARIANT_DIR'), 'cores',
+                               'arduino', 'syscalls_sam3.o') + ' $_LIBFLAGS')
             s = s.replace('"{object_files}"', '$SOURCES')
             s = s.replace('{object_files}', '$SOURCES')
             s = s.replace('"{build.path}/{archive_file}"', '')
@@ -607,6 +645,14 @@ def generate(env):
             s = s.replace('"{build.path}/{archive_file}"', '')
             s = s.replace('{build.path}/{archive_file}', '')
             env.Replace( ASCOM = s, ASPPCOM = s )
+
+        pattern = 'tools.' + prog + '.upload.pattern'
+        if pattern in info:
+
+            s = info[pattern]
+            s = s.replace('"{build.path}/{build.project_name}.bin"', '$SOURCES')
+            s = s.replace('{build.path}/{build.project_name}.bin',   '$SOURCES')
+            env.Replace( UPLOAD = s )
 
         return env
 
@@ -687,3 +733,26 @@ def generate(env):
         '''
         elf = env.Program(name, sources, PROGSUFFIX = '.elf')
         return env.Hex(name, elf)
+
+    @env.AddMethod
+    def Upload(env, source, name="upload"):
+
+        def tickle(target, source, env):
+            import serial
+            import time
+
+            port = env['PORT']
+            print 'Tickling the bootloader via port ' + port
+            try:
+                with serial.Serial(port, baudrate=1200) as sd:
+                    sd.setDTR(1)
+                    time.sleep(0.5)
+                    sd.setDTR(0)
+            except serial.SerialException, e:
+                return str(e)
+
+        cmd = env['UPLOAD']
+        cmd = cmd.replace('$PORT', env['PORT'].replace('/dev/', ''))
+        target = env.Alias(name, source, [tickle, cmd])
+        AlwaysBuild(target)
+        return target
