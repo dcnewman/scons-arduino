@@ -310,6 +310,8 @@ def generate(env):
             ARDUINO_HOME = os.environ.get("ARDUINO_HOME", "/usr/share/arduino"))
         env.SetDefault(
             ARDUINO_ARCH = os.environ.get("ARDUINO_ARCH", "sam"))
+        env.SetDefault(
+            BOSSAC_PATH = os.environ.get('BOSSAC_PATH', ''))
 
         arch = arch.lower()
 
@@ -409,11 +411,15 @@ def generate(env):
         if not setInfo(info, 'path', 'tools.' + prog + '.path'):
             info['path'] = join(env.subst('$ARDUINO_HOME', 'hardware', 'tools'))
 
+        # Needed for Arduino 1.6
+        if not ('runtime.tools.bossac.path' in info):
+            info['runtime.tools.bossac.path'] = env.subst('$BOSSAC_PATH')
+
         if not setInfo(info, 'upload.verbose', 
                        'tools.' + prog + '.upload.params.quiet'):
             info['upload.verbose'] = ''
 
-        info['upload.native_usb'] = 'false'
+        info['upload.native_usb'] = '$NATIVE'
         info['serial.port.file'] = '$PORT'
 
         # Now process all the substitution strings in the table
@@ -612,6 +618,15 @@ def generate(env):
             s = s.replace('{build.path}/syscalls_sam3.c.o',
                           join(env.subst('$VARIANT_DIR'), 'cores',
                                'arduino', 'syscalls_sam3.o') + ' $_LIBFLAGS')
+
+            # Added for 1.6.5 SAM libraries (appeared in Arduino 1.6.6)
+            s = s.replace('"{build.path}/core/syscalls_sam3.c.o"',
+                          join(env.subst('$VARIANT_DIR'), 'cores',
+                               'arduino', 'syscalls_sam3.o') + ' $_LIBFLAGS')
+            s = s.replace('{build.path}/core/syscalls_sam3.c.o',
+                          join(env.subst('$VARIANT_DIR'), 'cores',
+                               'arduino', 'syscalls_sam3.o') + ' $_LIBFLAGS')
+
             s = s.replace('"{object_files}"', '$SOURCES')
             s = s.replace('{object_files}', '$SOURCES')
             s = s.replace('"{build.path}/{archive_file}"', '')
@@ -751,7 +766,13 @@ def generate(env):
             except serial.SerialException, e:
                 return str(e)
 
+        if 'NATIVE' in env:
+            native = env['NATIVE'].lower()
+        else:
+            native = 'true'
+
         cmd = env['UPLOAD']
+        cmd = cmd.replace('$NATIVE', native)
         cmd = cmd.replace('$PORT', env['PORT'].replace('/dev/', ''))
         target = env.Alias(name, source, [tickle, cmd])
         AlwaysBuild(target)
